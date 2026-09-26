@@ -60,6 +60,11 @@ blender --python-expr "import pip; pip.main(['install', 'opencv-python-headless'
 
 Pin versions in production deployments after validating against your Blender Python ABI.
 
+BodyMocap also discovers packages in Blender's per-user
+`DATAFILES/bodymocap/site-packages` directory when enabled. This supports an
+existing user-local installation without requiring a manual `sys.path` change
+after each Blender restart.
+
 ### MediaPipe pose model (tasks API / mediapipe 1.x)
 
 MediaPipe 1.x removed `mp.solutions`; BodyMocap uses `PoseLandmarker` instead,

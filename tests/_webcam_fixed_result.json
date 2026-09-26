@@ -1,0 +1,15 @@
+{
+  "samples": 41,
+  "detected_samples": 41,
+  "max_valid_landmarks": 13,
+  "max_direction_error_degrees": 0.0,
+  "source": "webcam 0 after pose fix",
+  "changed_bones": [
+    "Neck",
+    "Shoulder.L",
+    "Shoulder.R"
+  ],
+  "frames": 124,
+  "tracking": "DEGRADED",
+  "recorded_frames": 124
+}

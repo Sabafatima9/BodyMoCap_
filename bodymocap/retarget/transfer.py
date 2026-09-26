@@ -143,7 +143,9 @@ def transfer_in_blender(
         scene.frame_set(f)
         src_rots: Dict[str, Quat] = {}
         for pb in src.pose.bones:
-            q = pb.rotation_quaternion
+            # Imported actions commonly animate Euler or axis-angle channels.
+            # matrix_basis reflects the bone's active rotation representation.
+            q = pb.matrix_basis.to_quaternion()
             src_rots[pb.name] = Quat(q.w, q.x, q.y, q.z)
         remapped = remap_pose_dict(src_rots, src_chains, tgt_chains, src_lens, tgt_lens)
         out_frame = start_frame + (f - frame_start)

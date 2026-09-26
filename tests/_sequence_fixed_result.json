@@ -1,0 +1,26 @@
+{
+  "source": "included image sequence",
+  "frames": 613,
+  "valid_landmarks": 31,
+  "direction_errors_degrees": {
+    "chest": 0.0,
+    "clavicle_L": 0.0,
+    "clavicle_R": 0.0,
+    "forearm_L": 0.0,
+    "forearm_R": 0.0,
+    "hand_L": 0.0,
+    "hand_R": 0.0,
+    "head": 0.0,
+    "hips": 0.0,
+    "neck": 0.0,
+    "shin_L": 0.0,
+    "shin_R": 0.0,
+    "spine": 0.0,
+    "thigh_L": 0.0,
+    "thigh_R": 0.0,
+    "upper_arm_L": 0.0,
+    "upper_arm_R": 0.0
+  },
+  "action": "CameraSequenceVerified",
+  "keyframes": 40816
+}

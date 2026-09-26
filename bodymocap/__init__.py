@@ -3,7 +3,7 @@
 bl_info = {
     "name": "BodyMocap",
     "author": "BodyMocap Project",
-    "version": (1, 1, 0),
+    "version": (1, 1, 1),
     "blender": (4, 0, 0),
     "location": "View3D > Sidebar > BodyMocap",
     "description": (
@@ -34,12 +34,14 @@ def register():
         retarget_ops,
     )
     from .utils.blender_compat import (
+        add_user_dependency_path,
         dependency_panel_text,
         is_supported_blender,
         version_warning_message,
     )
     from .utils.logging_util import log_info, log_warning
 
+    add_user_dependency_path()
     preferences.register()
     properties.register()
     lists.register()

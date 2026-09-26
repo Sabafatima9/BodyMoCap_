@@ -125,6 +125,20 @@ def action_frame_range(action) -> Tuple[int, int]:
 # Dependency checks
 # --------------------------------------------------------------------------
 
+def add_user_dependency_path() -> None:
+    """Discover dependencies installed in Blender's per-user BodyMocap folder."""
+    import sys
+    from pathlib import Path
+
+    try:
+        import bpy
+    except ImportError:
+        return
+    path = Path(bpy.utils.user_resource("DATAFILES")) / "bodymocap" / "site-packages"
+    if path.is_dir() and str(path) not in sys.path:
+        sys.path.append(str(path))
+
+
 def check_opencv() -> Tuple[bool, str]:
     try:
         import cv2

@@ -135,8 +135,11 @@ def apply_landmarks_to_rotations(
     landmarks: Dict[str, Landmark],
     role_to_bone: Dict[str, str],
     calibration: Optional[CalibrationData] = None,
+    armature_obj=None,
 ) -> Dict[str, Quat]:
     """Return bone_name → delta quaternion for mapped roles."""
+    if armature_obj is not None:
+        return _armature_local_rotations(landmarks, role_to_bone, calibration, armature_obj)
     result: Dict[str, Quat] = {}
     for role, bone_name in role_to_bone.items():
         if not bone_name:
@@ -152,6 +155,60 @@ def apply_landmarks_to_rotations(
             rest = Vec3(0, 1, 0)
             delta = compute_bone_delta(cur, rest)
         result[bone_name] = quat_normalize(delta)
+    return result
+
+
+def _armature_local_rotations(landmarks, role_to_bone, calibration, armature_obj):
+    """Convert world directions to armature space, then remove rest/parent rotations."""
+    from mathutils import Quaternion, Vector
+
+    def world_direction(direction):
+        # Backend coordinates are Y-up; Blender coordinates are Z-up.
+        return Vector((direction.x, -direction.z, direction.y)).normalized()
+
+    object_matrix = armature_obj.matrix_world.to_3x3()
+    world_to_armature = object_matrix.inverted_safe()
+    rest_rotations = {
+        b.name: b.matrix_local.to_quaternion()
+        for b in armature_obj.data.bones
+    }
+    desired = {}
+    for role, bone_name in role_to_bone.items():
+        if bone_name not in rest_rotations:
+            continue
+        direction = bone_direction_from_landmarks(role, landmarks)
+        if direction is None or direction.length() < 1e-6:
+            continue
+        current_world = world_direction(direction)
+        rest = rest_rotations[bone_name]
+        rest_direction = rest @ Vector((0, 1, 0))
+        if calibration and calibration.valid and role in calibration.bone_rest_dirs:
+            reference = world_direction(calibration.bone_rest_dirs[role])
+            swing = reference.rotation_difference(current_world)
+            current_world = swing @ (object_matrix @ rest_direction)
+        current = (world_to_armature @ current_world).normalized()
+        desired[bone_name] = rest_direction.rotation_difference(current) @ rest
+
+    solved = {}
+    result = {}
+
+    def solve(pb):
+        if pb.name in solved:
+            return solved[pb.name]
+        parent_rotation = solve(pb.parent) if pb.parent else Quaternion()
+        parent_rest = rest_rotations[pb.parent.name] if pb.parent else Quaternion()
+        relative_rest = parent_rest.inverted() @ rest_rotations[pb.name]
+        if pb.name in desired:
+            rotation = desired[pb.name]
+            local = (relative_rest.inverted() @ parent_rotation.inverted() @ rotation).normalized()
+            result[pb.name] = Quat(local.w, local.x, local.y, local.z)
+        else:
+            rotation = parent_rotation @ relative_rest @ pb.matrix_basis.to_quaternion()
+        solved[pb.name] = rotation
+        return rotation
+
+    for pb in armature_obj.pose.bones:
+        solve(pb)
     return result
 
 

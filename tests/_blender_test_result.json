@@ -1,5 +1,5 @@
 {
-  "blender": "5.2.2 LTS",
+  "blender": "5.2.1 LTS",
   "results": {
     "addon_registered": {
       "ok": true,
@@ -35,7 +35,7 @@
     },
     "webcam_landmarks": {
       "ok": true,
-      "detail": "0 landmarks on live frame"
+      "detail": "26 landmarks on live frame; a visible subject is required"
     },
     "armature_present": {
       "ok": true,

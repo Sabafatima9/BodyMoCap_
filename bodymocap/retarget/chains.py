@@ -32,7 +32,14 @@ CHAIN_PATTERNS: Dict[str, List[str]] = {
 
 
 def _norm(name: str) -> str:
-    return re.sub(r"[\s\-]+", "", name.lower())
+    n = re.sub(r"[\s\-]+", "", name.lower()).split(":")[-1]
+    # Match namespace-prefixed Mixamo and side-prefix names as suffix names.
+    n = re.sub(r"^left", "l_", n)
+    n = re.sub(r"^right", "r_", n)
+    match = re.match(r"^([lr])[._](.+)$", n)
+    if match:
+        n = match.group(2) + "." + match.group(1)
+    return n
 
 
 def match_bone_to_patterns(bone_name: str, patterns: Sequence[str]) -> bool:

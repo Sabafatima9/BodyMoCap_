@@ -1,0 +1,12 @@
+{
+  "samples": 32,
+  "full_body_samples": 0,
+  "best_valid": 27,
+  "worst_valid": 0,
+  "states": {
+    "OK": 11,
+    "DEGRADED": 15,
+    "LOST": 6
+  },
+  "recorded_frames": 92
+}

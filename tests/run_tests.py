@@ -13,7 +13,13 @@ sys.path.insert(0, str(ROOT))
 
 def main() -> int:
     loader = unittest.TestLoader()
-    suite = loader.discover(str(Path(__file__).parent), pattern="test_*.py")
+    test_dir = Path(__file__).parent
+    # These are executable Blender integration scripts, not unittest modules.
+    blender_scripts = {"test_in_blender.py", "test_live_gui.py"}
+    suite = unittest.TestSuite()
+    for path in sorted(test_dir.glob("test_*.py")):
+        if path.name not in blender_scripts:
+            suite.addTests(loader.discover(str(test_dir), pattern=path.name))
     runner = unittest.TextTestRunner(verbosity=2)
     result = runner.run(suite)
     return 0 if result.wasSuccessful() else 1

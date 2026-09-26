@@ -202,11 +202,11 @@ class BODYMOCAP_OT_camera_start(Operator):
         # Live apply to armature
         role_map = _mapping_dict(settings)
         bone_rots = {}
-        if settings.live_apply and role_map and landmarks:
+        arm = context.active_object
+        if settings.live_apply and role_map and landmarks and arm and arm.type == "ARMATURE":
             bone_rots = apply_landmarks_to_rotations(
-                landmarks, role_map, get_runtime_calibration()
+                landmarks, role_map, get_runtime_calibration(), armature_obj=arm
             )
-            arm = context.active_object
             if arm and arm.type == "ARMATURE" and bone_rots:
                 # Scale subject
                 apply_rotations_to_armature(arm, bone_rots)

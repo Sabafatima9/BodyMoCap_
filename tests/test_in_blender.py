@@ -73,7 +73,7 @@ def main():
           f"{n_landmarks} valid landmarks, state={state}")
 
     # Live webcam frame through capture + backend
-    cam_ok, cam_lm = False, 0
+    cam_ok, cam_lm, ok_frame = False, 0, False
     try:
         from bodymocap.camera.capture import CameraCapture
         cap = CameraCapture()
@@ -86,8 +86,11 @@ def main():
             cap.close()
     except Exception as exc:
         print("  webcam test exc:", exc)
-    check("webcam_capture", cam_ok, "device 0 opened + frame read")
-    RESULTS["webcam_landmarks"] = {"ok": True, "detail": f"{cam_lm} landmarks on live frame"}
+    check("webcam_capture", cam_ok and ok_frame, "device 0 opened + frame read")
+    RESULTS["webcam_landmarks"] = {
+        "ok": True if cam_lm >= 10 else None,
+        "detail": f"{cam_lm} landmarks on live frame; a visible subject is required",
+    }
     print("  live webcam landmarks:", cam_lm, "(0 is fine if nobody is in front of camera)")
     be.shutdown()
 
@@ -196,11 +199,9 @@ def main():
             eb.head = Vector(head)
             eb.tail = Vector(tail)
             ebs[name] = eb
-        for name, eb in ebs.items():
-            pass
+            if parent:
+                eb.parent = ebs[parent]
         bpy.ops.object.mode_set(mode="OBJECT")
-        for name, head, tail, parent in []:
-            pass
         bpy.context.view_layer.objects.active = tgt_obj
         tgt_obj.select_set(True)
 
