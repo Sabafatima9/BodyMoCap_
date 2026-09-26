@@ -1,0 +1,71 @@
+{
+  "name": "sample_walk_idle",
+  "fps": 30,
+  "frames": [
+    {
+      "frame_index": 0,
+      "timestamp": 0.0,
+      "landmarks": {
+        "nose": {"position": {"x": 0.0, "y": 1.60, "z": 0.0}, "confidence": 0.95},
+        "left_shoulder": {"position": {"x": 0.20, "y": 1.40, "z": 0.0}, "confidence": 0.94},
+        "right_shoulder": {"position": {"x": -0.20, "y": 1.40, "z": 0.0}, "confidence": 0.94},
+        "left_elbow": {"position": {"x": 0.35, "y": 1.15, "z": 0.05}, "confidence": 0.90},
+        "right_elbow": {"position": {"x": -0.35, "y": 1.15, "z": 0.05}, "confidence": 0.90},
+        "left_wrist": {"position": {"x": 0.40, "y": 0.90, "z": 0.08}, "confidence": 0.88},
+        "right_wrist": {"position": {"x": -0.40, "y": 0.90, "z": 0.08}, "confidence": 0.88},
+        "left_index": {"position": {"x": 0.42, "y": 0.85, "z": 0.10}, "confidence": 0.80},
+        "right_index": {"position": {"x": -0.42, "y": 0.85, "z": 0.10}, "confidence": 0.80},
+        "left_hip": {"position": {"x": 0.10, "y": 0.95, "z": 0.0}, "confidence": 0.93},
+        "right_hip": {"position": {"x": -0.10, "y": 0.95, "z": 0.0}, "confidence": 0.93},
+        "left_knee": {"position": {"x": 0.12, "y": 0.50, "z": 0.05}, "confidence": 0.91},
+        "right_knee": {"position": {"x": -0.12, "y": 0.50, "z": -0.05}, "confidence": 0.91},
+        "left_ankle": {"position": {"x": 0.12, "y": 0.05, "z": 0.08}, "confidence": 0.89},
+        "right_ankle": {"position": {"x": -0.12, "y": 0.05, "z": -0.08}, "confidence": 0.89},
+        "left_foot_index": {"position": {"x": 0.14, "y": 0.02, "z": 0.14}, "confidence": 0.85},
+        "right_foot_index": {"position": {"x": -0.14, "y": 0.02, "z": -0.02}, "confidence": 0.85}
+      }
+    },
+    {
+      "frame_index": 1,
+      "timestamp": 0.033,
+      "landmarks": {
+        "nose": {"position": {"x": 0.01, "y": 1.60, "z": 0.0}, "confidence": 0.95},
+        "left_shoulder": {"position": {"x": 0.20, "y": 1.40, "z": 0.0}, "confidence": 0.94},
+        "right_shoulder": {"position": {"x": -0.20, "y": 1.40, "z": 0.0}, "confidence": 0.94},
+        "left_elbow": {"position": {"x": 0.35, "y": 1.15, "z": 0.0}, "confidence": 0.90},
+        "right_elbow": {"position": {"x": -0.35, "y": 1.15, "z": 0.10}, "confidence": 0.90},
+        "left_wrist": {"position": {"x": 0.40, "y": 0.90, "z": 0.0}, "confidence": 0.88},
+        "right_wrist": {"position": {"x": -0.40, "y": 0.90, "z": 0.15}, "confidence": 0.88},
+        "left_index": {"position": {"x": 0.42, "y": 0.85, "z": 0.02}, "confidence": 0.80},
+        "right_index": {"position": {"x": -0.42, "y": 0.85, "z": 0.18}, "confidence": 0.80},
+        "left_hip": {"position": {"x": 0.10, "y": 0.95, "z": 0.0}, "confidence": 0.93},
+        "right_hip": {"position": {"x": -0.10, "y": 0.95, "z": 0.0}, "confidence": 0.93},
+        "left_knee": {"position": {"x": 0.12, "y": 0.50, "z": 0.10}, "confidence": 0.91},
+        "right_knee": {"position": {"x": -0.12, "y": 0.50, "z": -0.10}, "confidence": 0.91},
+        "left_ankle": {"position": {"x": 0.12, "y": 0.08, "z": 0.15}, "confidence": 0.89},
+        "right_ankle": {"position": {"x": -0.12, "y": 0.05, "z": -0.12}, "confidence": 0.89},
+        "left_foot_index": {"position": {"x": 0.14, "y": 0.04, "z": 0.20}, "confidence": 0.85},
+        "right_foot_index": {"position": {"x": -0.14, "y": 0.02, "z": -0.05}, "confidence": 0.85}
+      }
+    },
+    {
+      "frame_index": 2,
+      "timestamp": 0.066,
+      "landmarks": {
+        "nose": {"position": {"x": 0.0, "y": 1.60, "z": 0.0}, "confidence": 0.40},
+        "left_shoulder": {"position": {"x": 0.20, "y": 1.40, "z": 0.0}, "confidence": 0.35},
+        "right_shoulder": {"position": {"x": -0.20, "y": 1.40, "z": 0.0}, "confidence": 0.30},
+        "left_elbow": {"position": {"x": 0.35, "y": 1.15, "z": 0.05}, "confidence": 0.25},
+        "right_elbow": {"position": {"x": -0.35, "y": 1.15, "z": 0.05}, "confidence": 0.20},
+        "left_wrist": {"position": {"x": 0.40, "y": 0.90, "z": 0.08}, "confidence": 0.15},
+        "right_wrist": {"position": {"x": -0.40, "y": 0.90, "z": 0.08}, "confidence": 0.10},
+        "left_hip": {"position": {"x": 0.10, "y": 0.95, "z": 0.0}, "confidence": 0.30},
+        "right_hip": {"position": {"x": -0.10, "y": 0.95, "z": 0.0}, "confidence": 0.28},
+        "left_knee": {"position": {"x": 0.12, "y": 0.50, "z": 0.0}, "confidence": 0.22},
+        "right_knee": {"position": {"x": -0.12, "y": 0.50, "z": 0.0}, "confidence": 0.20},
+        "left_ankle": {"position": {"x": 0.12, "y": 0.05, "z": 0.0}, "confidence": 0.18},
+        "right_ankle": {"position": {"x": -0.12, "y": 0.05, "z": 0.0}, "confidence": 0.15}
+      }
+    }
+  ]
+}

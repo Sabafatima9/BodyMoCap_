@@ -1,0 +1,79 @@
+{
+  "blender": "5.2.2 LTS",
+  "results": {
+    "addon_registered": {
+      "ok": true,
+      "detail": "scene.bodymocap"
+    },
+    "dep_numpy": {
+      "ok": true,
+      "detail": "2.3.4"
+    },
+    "dep_opencv": {
+      "ok": true,
+      "detail": "5.0.0"
+    },
+    "dep_mediapipe": {
+      "ok": true,
+      "detail": "1.0.1 (tasks API)"
+    },
+    "mp_available": {
+      "ok": true,
+      "detail": ""
+    },
+    "mp_init": {
+      "ok": true,
+      "detail": "api=tasks err="
+    },
+    "mp_photo_landmarks": {
+      "ok": true,
+      "detail": "27 valid landmarks, state=OK"
+    },
+    "webcam_capture": {
+      "ok": true,
+      "detail": "device 0 opened + frame read"
+    },
+    "webcam_landmarks": {
+      "ok": true,
+      "detail": "0 landmarks on live frame"
+    },
+    "armature_present": {
+      "ok": true,
+      "detail": "HumanoidRig"
+    },
+    "auto_map": {
+      "ok": true,
+      "detail": "19 roles mapped"
+    },
+    "calibration": {
+      "ok": true,
+      "detail": "scale=0.450 rest_dirs=19"
+    },
+    "live_apply_rotations": {
+      "ok": true,
+      "detail": "19 bones set, 12 moved"
+    },
+    "record_frames": {
+      "ok": true,
+      "detail": "30 frames"
+    },
+    "bake_action": {
+      "ok": true,
+      "detail": "action=BodyMocapAction keys=2280"
+    },
+    "apply_action": {
+      "ok": true,
+      "detail": "BodyMocapAction"
+    },
+    "action_evaluates": {
+      "ok": true,
+      "detail": "posed bones differ from identity"
+    },
+    "retarget": {
+      "ok": true,
+      "detail": "keys=1200"
+    }
+  },
+  "failures": [],
+  "passed": true
+}
