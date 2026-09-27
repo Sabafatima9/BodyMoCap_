@@ -25,6 +25,10 @@
       "ok": true,
       "detail": "api=tasks err="
     },
+    "mp_world_landmarks": {
+      "ok": true,
+      "detail": "27 metric 3D landmarks, aspect=0.75"
+    },
     "mp_photo_landmarks": {
       "ok": true,
       "detail": "27 valid landmarks, state=OK"
@@ -34,8 +38,8 @@
       "detail": "device 0 opened + frame read"
     },
     "webcam_landmarks": {
-      "ok": true,
-      "detail": "26 landmarks on live frame; a visible subject is required"
+      "ok": null,
+      "detail": "0 landmarks on live frame; a visible subject is required"
     },
     "armature_present": {
       "ok": true,
@@ -47,19 +51,23 @@
     },
     "calibration": {
       "ok": true,
-      "detail": "scale=0.450 rest_dirs=19"
+      "detail": "torso=0.450m frames=['chest', 'head', 'hips', 'neck', 'spine']"
     },
     "live_apply_rotations": {
       "ok": true,
-      "detail": "19 bones set, 12 moved"
+      "detail": "20 channels set, 12 moved"
+    },
+    "root_motion_solved": {
+      "ok": true,
+      "detail": "locations=['Hips']"
     },
     "record_frames": {
       "ok": true,
-      "detail": "30 frames"
+      "detail": "30 frames (time-indexed at 30 fps)"
     },
     "bake_action": {
       "ok": true,
-      "detail": "action=BodyMocapAction keys=2280"
+      "detail": "action=BodyMocapAction keys=2370"
     },
     "apply_action": {
       "ok": true,
@@ -69,9 +77,17 @@
       "ok": true,
       "detail": "posed bones differ from identity"
     },
+    "retarget_status": {
+      "ok": true,
+      "detail": "Retargeted 30 frames onto 10 bones of CoarseRig.001 -> Action 'RetargetedTest' ("
+    },
+    "retarget_applied": {
+      "ok": true,
+      "detail": ""
+    },
     "retarget": {
       "ok": true,
-      "detail": "keys=1200"
+      "detail": "keys=1290"
     }
   },
   "failures": [],

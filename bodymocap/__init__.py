@@ -3,12 +3,12 @@
 bl_info = {
     "name": "BodyMocap",
     "author": "BodyMocap Project",
-    "version": (1, 1, 1),
+    "version": (1, 2, 0),
     "blender": (4, 0, 0),
     "location": "View3D > Sidebar > BodyMocap",
     "description": (
-        "Webcam body motion capture, joint→bone mapping, Action bake, "
-        "and N:M cross-armature retargeting"
+        "Webcam body motion capture with live camera view in the viewport, 3D pose "
+        "solve with root motion, one-click record to timeline and N:M retargeting"
     ),
     "category": "Animation",
     "doc_url": "",
@@ -84,13 +84,23 @@ def unregister():
     )
     from .camera.capture import get_capture
     from .overlay.draw import unregister_viewport_draw_handler
+    from .overlay.viewport import unregister_viewport_overlay
     from .utils.logging_util import log_info
 
     try:
+        import bpy
+
+        for scene in bpy.data.scenes:
+            if hasattr(scene, "bodymocap"):
+                scene.bodymocap.camera_active = False  # lets a running capture loop finish
+        from .operators.camera_ops import get_live
+
+        get_live().reset_runtime()  # stops the capture worker thread
         get_capture().close()
     except Exception:
         pass
     unregister_viewport_draw_handler()
+    unregister_viewport_overlay()
 
     retarget_ops.unregister()
     bake_ops.unregister()

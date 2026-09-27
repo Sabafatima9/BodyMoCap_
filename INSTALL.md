@@ -85,9 +85,10 @@ When set it replaces the webcam device — handy for headless/CI-style testing.
 ## 3. Verify
 
 1. Enable add-on — Blender must not crash
-2. Panel → **Refresh** — shows OK/MISSING per dependency
-3. Set backend to **Mock / Offline** → **Start** — tracking status updates
-4. With OpenCV + camera: backend **MediaPipe** → **Start** — preview Image `BodyMocap_Preview` updates
+2. Panel → *Camera & Display* → **Refresh** — shows OK/MISSING per dependency
+3. Select an armature, set backend to **Mock / Offline** → **Start Camera** — a synthetic skeleton appears in the viewport corner and the rig walks
+4. With OpenCV + camera: backend **MediaPipe** → **Start Camera** — the webcam feed with your tracked skeleton appears in the viewport corner (the `BodyMocap_Preview` image also updates for Image Editors)
+5. Press **Record**, move, press **Stop & Apply** — keyframes are on the timeline; Space plays the take
 
 ## 4. Uninstall
 

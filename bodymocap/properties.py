@@ -19,6 +19,10 @@ except ImportError:
     PropertyGroup = object  # type: ignore
 
 
+def _is_armature(self, obj) -> bool:
+    return obj is not None and obj.type == "ARMATURE"
+
+
 class BODYMOCAP_PG_MapEntry(PropertyGroup):
     role: StringProperty(name="Role", default="")
     bone_name: StringProperty(name="Bone", default="")
@@ -34,10 +38,58 @@ class BODYMOCAP_PG_Settings(PropertyGroup):
         subtype="FILE_PATH",
     )
     camera_active: BoolProperty(name="Camera Active", default=False)
-    mirror_preview: BoolProperty(name="Mirror", default=True)
+    mirror_preview: BoolProperty(
+        name="Mirror",
+        description="Flip the camera like a mirror: raise your left hand and the rig raises the hand on your left",
+        default=True,
+    )
     subject_scale: FloatProperty(name="Subject Scale", default=1.0, min=0.1, max=10.0)
-    subject_distance: FloatProperty(name="Subject Distance", default=2.0, min=0.3, max=20.0)
+    subject_distance: FloatProperty(
+        name="Subject Distance",
+        description="Approximate distance from the camera (metres) when calibrating; scales root motion depth",
+        default=2.0,
+        min=0.3,
+        max=20.0,
+    )
     show_overlay: BoolProperty(name="Show Overlay", default=True)
+
+    # Viewport display
+    show_camera_in_viewport: BoolProperty(
+        name="Camera in Viewport",
+        description="Show the live camera feed with the tracked skeleton in a corner of the 3D Viewport",
+        default=True,
+    )
+    viewport_camera_size: FloatProperty(
+        name="Camera Size",
+        description="Width of the camera view as a fraction of the viewport",
+        default=0.3,
+        min=0.12,
+        max=0.7,
+        subtype="FACTOR",
+    )
+    viewport_camera_corner: EnumProperty(
+        name="Corner",
+        items=[
+            ("BOTTOM_LEFT", "Bottom Left", ""),
+            ("BOTTOM_RIGHT", "Bottom Right", ""),
+            ("TOP_LEFT", "Top Left", ""),
+            ("TOP_RIGHT", "Top Right", ""),
+        ],
+        default="BOTTOM_LEFT",
+    )
+    show_ghost_skeleton: BoolProperty(
+        name="3D Tracked Skeleton",
+        description="Draw the tracked body as a 3D stick figure in the viewport, scaled to the rig",
+        default=True,
+    )
+    ghost_offset: FloatProperty(
+        name="Skeleton Offset",
+        description="Sideways offset of the tracked skeleton from the rig (0 draws it on top of the rig)",
+        default=0.0,
+        min=-10.0,
+        max=10.0,
+        subtype="DISTANCE",
+    )
 
     # Pose / tracking
     pose_backend: EnumProperty(
@@ -68,7 +120,16 @@ class BODYMOCAP_PG_Settings(PropertyGroup):
         ],
         default="hold_last",
     )
+    smoothing: FloatProperty(
+        name="Smoothing",
+        description="Temporal smoothing of landmarks (0 = raw, higher = steadier but laggier)",
+        default=0.35,
+        min=0.0,
+        max=0.9,
+        subtype="FACTOR",
+    )
     tracking_status: StringProperty(name="Tracking", default="Lost")
+    capture_fps: FloatProperty(name="Capture FPS", default=0.0)
 
     # Calibration
     rest_pose_style: EnumProperty(
@@ -83,10 +144,27 @@ class BODYMOCAP_PG_Settings(PropertyGroup):
     is_calibrated: BoolProperty(name="Calibrated", default=False)
 
     # Mapping
+    capture_armature: PointerProperty(
+        name="Armature",
+        description="Rig driven by the camera (defaults to the active armature when capture starts)",
+        type=bpy.types.Object if bpy else None,
+        poll=_is_armature,
+    )
     mapping_entries: CollectionProperty(type=BODYMOCAP_PG_MapEntry)
     mapping_index: IntProperty(name="Mapping Index", default=0)
     preset_path: StringProperty(name="Preset Path", default="", subtype="FILE_PATH")
     mapping_quality: StringProperty(name="Mapping Quality", default="")
+    root_motion: BoolProperty(
+        name="Root Motion",
+        description="Move the hips bone when you walk around, crouch or step toward/away from the camera",
+        default=True,
+    )
+    root_motion_scale: FloatProperty(
+        name="Root Motion Scale",
+        default=1.0,
+        min=0.0,
+        max=5.0,
+    )
 
     # Recording
     is_recording: BoolProperty(name="Recording", default=False)
@@ -94,6 +172,25 @@ class BODYMOCAP_PG_Settings(PropertyGroup):
     record_frame_count: IntProperty(name="Recorded Frames", default=0)
     degraded_warn_fraction: FloatProperty(
         name="Degraded Warn Fraction", default=0.15, min=0.0, max=1.0
+    )
+    live_keyframes: BoolProperty(
+        name="Keyframe Live",
+        description="Insert keyframes into the Action while recording so they appear on the timeline as you move",
+        default=True,
+    )
+    follow_playhead: BoolProperty(
+        name="Follow Playhead",
+        description="Advance the scene frame while recording",
+        default=True,
+    )
+    auto_apply_on_stop: BoolProperty(
+        name="Apply on Stop",
+        description="When recording stops: bake (if needed), assign the Action and set the scene frame range to the take",
+        default=True,
+    )
+    stop_camera_on_stop: BoolProperty(
+        name="Stop Camera with Recording",
+        default=False,
     )
 
     # Bake / apply
@@ -118,10 +215,29 @@ class BODYMOCAP_PG_Settings(PropertyGroup):
     )
 
     # Retarget
-    source_armature: StringProperty(name="Source Armature", default="")
-    target_armature: StringProperty(name="Target Armature", default="")
-    retarget_action: StringProperty(name="Source Action", default="")
-    retarget_new_action: StringProperty(name="New Action Name", default="RetargetedAction")
+    source_armature: PointerProperty(
+        name="Source",
+        description="Armature that has the animation (defaults to the capture rig)",
+        type=bpy.types.Object if bpy else None,
+        poll=_is_armature,
+    )
+    target_armature: PointerProperty(
+        name="Target",
+        description="Armature that should receive the animation",
+        type=bpy.types.Object if bpy else None,
+        poll=_is_armature,
+    )
+    retarget_action: PointerProperty(
+        name="Action",
+        description="Action to transfer (defaults to the source's active Action)",
+        type=bpy.types.Action if bpy else None,
+    )
+    retarget_new_action: StringProperty(
+        name="New Action Name",
+        description="Leave empty for '<action>_<target>'",
+        default="",
+    )
+    retarget_status: StringProperty(name="Retarget Status", default="")
 
     # Privacy / debug
     save_debug_video: BoolProperty(
@@ -132,9 +248,10 @@ class BODYMOCAP_PG_Settings(PropertyGroup):
     deps_status: StringProperty(name="Deps Status", default="")
     live_apply: BoolProperty(
         name="Live Apply Pose",
-        description="Drive selected armature while camera/mock is running",
+        description="Drive the armature while camera/mock is running",
         default=True,
     )
+    last_message: StringProperty(name="Last Message", default="")
 
 
 CLASSES = (BODYMOCAP_PG_MapEntry, BODYMOCAP_PG_Settings)

@@ -95,6 +95,14 @@ def transfer_in_blender(
     tgt_bones = [b.name for b in tgt.data.bones]
     src_chains = detect_chains(src_bones)
     tgt_chains = detect_chains(tgt_bones)
+    pairs = pair_chains(src_chains, tgt_chains)
+    if not pairs:
+        return False, (
+            f"No matching bone chains between '{source_armature_name}' "
+            f"({', '.join(src_chains) or 'none detected'}) and '{target_armature_name}' "
+            f"({', '.join(tgt_chains) or 'none detected'}). Bones need recognisable names "
+            "such as UpperArm.L / Forearm.L, Thigh.R / Shin.R, Hips / Spine."
+        )
 
     # Rest lengths from edit bones (head-tail)
     def bone_lengths(arm_obj, chain: ChainDefinition) -> List[float]:
@@ -136,8 +144,25 @@ def transfer_in_blender(
     # Temporarily evaluate source
     if src.animation_data is None:
         src.animation_data_create()
+    src_prev_action = src.animation_data.action
     src.animation_data.action = action
     ensure_action_slot(src.animation_data, action, src)
+
+    prev_frame = scene.frame_current
+    keyed_bones = set()
+    # Root translation (first spine-chain bone, e.g. Hips) is carried over in world
+    # space, scaled by the ratio of hip heights so a bigger rig takes bigger steps.
+    src_root = src_chains["spine"].bone_names[0] if "spine" in src_chains else None
+    tgt_root = tgt_chains["spine"].bone_names[0] if "spine" in tgt_chains else None
+    root_scale = 1.0
+    if src_root and tgt_root:
+        src_h = (src.matrix_world @ src.data.bones[src_root].head_local).z
+        tgt_h = (tgt.matrix_world @ tgt.data.bones[tgt_root].head_local).z
+        root_scale = (tgt_h / src_h) if abs(src_h) > 1e-6 and abs(tgt_h) > 1e-6 else 1.0
+        src_root_to_world = src.matrix_world.to_3x3() @ src.data.bones[src_root].matrix_local.to_3x3()
+        world_to_tgt_root = (
+            tgt.matrix_world.to_3x3() @ tgt.data.bones[tgt_root].matrix_local.to_3x3()
+        ).inverted_safe()
 
     for f in range(frame_start, frame_end + 1):
         scene.frame_set(f)
@@ -156,6 +181,23 @@ def transfer_in_blender(
             pb.rotation_mode = "QUATERNION"
             pb.rotation_quaternion = Quaternion((q.w, q.x, q.y, q.z))
             pb.keyframe_insert(data_path="rotation_quaternion", frame=out_frame)
+            keyed_bones.add(bone_name)
+        if src_root and tgt_root:
+            src_pb = src.pose.bones[src_root]
+            tgt_pb = tgt.pose.bones[tgt_root]
+            if src_pb.location.length > 1e-9 or tgt_pb.location.length > 1e-9:
+                world_offset = src_root_to_world @ src_pb.location
+                tgt_pb.location = (world_to_tgt_root @ world_offset) * root_scale
+                tgt_pb.keyframe_insert(data_path="location", frame=out_frame)
 
+    scene.frame_set(prev_frame)
+    if src_prev_action is not None:
+        src.animation_data.action = src_prev_action
     tgt.animation_data.action = new_action
-    return True, f"Created action '{new_action_name}' on {target_armature_name}"
+    ensure_action_slot(tgt.animation_data, new_action, tgt)
+    n_frames = frame_end - frame_start + 1
+    chain_desc = ", ".join(f"{s.name} {len(s.bone_names)}->{len(t.bone_names)}" for s, t in pairs)
+    return True, (
+        f"Retargeted {n_frames} frames onto {len(keyed_bones)} bones of {target_armature_name} "
+        f"-> Action '{new_action.name}' ({chain_desc})"
+    )

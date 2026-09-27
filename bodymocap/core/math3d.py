@@ -164,3 +164,64 @@ def quat_angle_deg(a: Quat, b: Quat) -> float:
     d = abs(a.w * b.w + a.x * b.x + a.y * b.y + a.z * b.z)
     d = clamp(d, 0.0, 1.0)
     return math.degrees(2.0 * math.acos(d))
+
+
+def quat_rotate(q: Quat, v: Vec3) -> Vec3:
+    """Rotate vector v by unit quaternion q."""
+    qv = Quat(0.0, v.x, v.y, v.z)
+    r = quat_mul(quat_mul(q, qv), quat_conjugate(q))
+    return Vec3(r.x, r.y, r.z)
+
+
+def quat_from_matrix(m: Sequence[Sequence[float]]) -> Quat:
+    """Rotation matrix (rows) → quaternion (Shepperd's method)."""
+    m00, m01, m02 = m[0]
+    m10, m11, m12 = m[1]
+    m20, m21, m22 = m[2]
+    trace = m00 + m11 + m22
+    if trace > 0.0:
+        s = math.sqrt(trace + 1.0) * 2.0
+        return quat_normalize(Quat(0.25 * s, (m21 - m12) / s, (m02 - m20) / s, (m10 - m01) / s))
+    if m00 > m11 and m00 > m22:
+        s = math.sqrt(1.0 + m00 - m11 - m22) * 2.0
+        return quat_normalize(Quat((m21 - m12) / s, 0.25 * s, (m01 + m10) / s, (m02 + m20) / s))
+    if m11 > m22:
+        s = math.sqrt(1.0 + m11 - m00 - m22) * 2.0
+        return quat_normalize(Quat((m02 - m20) / s, (m01 + m10) / s, 0.25 * s, (m12 + m21) / s))
+    s = math.sqrt(1.0 + m22 - m00 - m11) * 2.0
+    return quat_normalize(Quat((m10 - m01) / s, (m02 + m20) / s, (m12 + m21) / s, 0.25 * s))
+
+
+def quat_from_frame(x_axis: Vec3, y_axis: Vec3, z_axis: Vec3) -> Quat:
+    """Quaternion whose rotation maps the identity basis onto the given (orthonormal) axes."""
+    return quat_from_matrix(
+        (
+            (x_axis.x, y_axis.x, z_axis.x),
+            (x_axis.y, y_axis.y, z_axis.y),
+            (x_axis.z, y_axis.z, z_axis.z),
+        )
+    )
+
+
+def orthonormal_frame(lateral: Vec3, up: Vec3) -> Tuple[Vec3, Vec3, Vec3]:
+    """Right-handed frame (lateral, up, forward) from a lateral and an up hint.
+
+    ``up`` is kept exact; ``lateral`` is made orthogonal to it. Returns
+    ``forward = lateral × up`` so that (lateral, up, forward) matches the identity
+    basis for a subject facing the camera: x = subject's left, y = up, z = toward camera.
+    """
+    y = up.normalized()
+    x = lateral - y * lateral.dot(y)
+    if x.length() < 1e-6:
+        # Degenerate hint (lateral ∥ up): pick any perpendicular direction
+        helper = Vec3(1.0, 0.0, 0.0) if abs(y.x) < 0.9 else Vec3(0.0, 0.0, 1.0)
+        x = helper - y * helper.dot(y)
+    x = x.normalized()
+    z = x.cross(y).normalized()
+    return x, y, z
+
+
+def frame_quat(lateral: Vec3, up: Vec3) -> Quat:
+    """Rotation from the identity body frame to the frame spanned by (lateral, up)."""
+    x, y, z = orthonormal_frame(lateral, up)
+    return quat_from_frame(x, y, z)

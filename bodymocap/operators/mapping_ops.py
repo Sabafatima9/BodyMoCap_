@@ -13,10 +13,9 @@ except ImportError:
 
 
 def _active_armature(context):
-    obj = context.active_object
-    if obj and obj.type == "ARMATURE":
-        return obj
-    return None
+    from .camera_ops import get_capture_armature
+
+    return get_capture_armature(context)
 
 
 def _set_entries(settings, role_to_bone):
@@ -47,6 +46,7 @@ class BODYMOCAP_OT_auto_map(Operator):
         bone_names = [b.name for b in arm.data.bones]
         mapping = build_auto_mapping(bone_names)
         settings = context.scene.bodymocap
+        settings.capture_armature = arm
         _set_entries(settings, mapping)
         quality = evaluate_mapping_quality(mapping, bone_names)
         settings.mapping_quality = mapping_quality_message(quality)

@@ -73,6 +73,36 @@ def _walking_skeleton(t: float) -> Dict[str, Landmark]:
     return base
 
 
+def _hips_mid(landmarks: Dict[str, Landmark]) -> Vec3:
+    lh = landmarks.get("left_hip")
+    rh = landmarks.get("right_hip")
+    if lh is None or rh is None:
+        return Vec3(0.0, 0.0, 0.0)
+    return (lh.position + rh.position) * 0.5
+
+
+def _to_hip_centred(landmarks: Dict[str, Landmark]) -> Dict[str, Landmark]:
+    """Synthetic skeletons are already metre-like; recentre on the hips like MediaPipe world landmarks."""
+    mid = _hips_mid(landmarks)
+    return {
+        name: Landmark(name, lm.position - mid, lm.confidence, lm.valid)
+        for name, lm in landmarks.items()
+    }
+
+
+def _to_image_space(landmarks: Dict[str, Landmark]) -> Dict[str, Landmark]:
+    """Fake camera projection: a 1.8 m tall subject fills ~90% of a 4:3 frame."""
+    return {
+        name: Landmark(
+            name,
+            Vec3(lm.position.x * 0.5 * 0.75, 0.05 + lm.position.y * 0.5, lm.position.z),
+            lm.confidence,
+            lm.valid,
+        )
+        for name, lm in landmarks.items()
+    }
+
+
 class MockBackend(PoseBackend):
     """Reads JSON fixture sequence or synthesizes idle/walk motion."""
 
@@ -130,10 +160,12 @@ class MockBackend(PoseBackend):
         filtered = self._hyst.filter_landmarks(landmarks)
         state = self._hyst.update(landmarks)
         return PoseFrame(
-            landmarks=filtered,
+            landmarks=_to_image_space(filtered),
             tracking_state=state,
-            timestamp=t if "t" in dir() else timestamp,
+            timestamp=t,
             frame_index=fi,
+            world_landmarks=_to_hip_centred(filtered),
+            aspect=4.0 / 3.0,
         )
 
     def _parse_frame(self, raw: Dict[str, Any]) -> Dict[str, Landmark]:

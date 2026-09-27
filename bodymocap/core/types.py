@@ -87,12 +87,25 @@ class Landmark:
 
 @dataclass
 class PoseFrame:
-    """One frame of pose estimation output."""
+    """One frame of pose estimation output.
+
+    ``landmarks`` are image-normalized (x centred on 0, y up, z depth-ish) and
+    drive the 2D overlay and root translation. ``world_landmarks`` are metric
+    3D positions (metres, hip-centred, y up, z toward the camera) and drive bone
+    directions; when a backend cannot provide them they are left empty and the
+    solver falls back to ``landmarks``.
+    """
 
     landmarks: Dict[str, Landmark] = field(default_factory=dict)
     tracking_state: TrackingState = TrackingState.LOST
     timestamp: float = 0.0
     frame_index: int = 0
+    world_landmarks: Dict[str, Landmark] = field(default_factory=dict)
+    aspect: float = 1.0  # frame width / height, for aspect-correct image coords
+
+    def solve_landmarks(self) -> Dict[str, Landmark]:
+        """Landmarks to use for 3D bone directions."""
+        return self.world_landmarks or self.landmarks
 
 
 @dataclass
@@ -109,6 +122,19 @@ class RecordingFrame:
     bone_rotations: Dict[str, Quat] = field(default_factory=dict)
     tracking_state: TrackingState = TrackingState.OK
     timestamp: float = 0.0
+    bone_locations: Dict[str, Vec3] = field(default_factory=dict)
+
+
+@dataclass
+class PoseSolution:
+    """Solved pose for one frame: bone-local rotations plus root translation."""
+
+    rotations: Dict[str, Quat] = field(default_factory=dict)
+    locations: Dict[str, Vec3] = field(default_factory=dict)
+    root_offset: Vec3 = field(default_factory=Vec3)  # world-space, rig units
+
+    def __bool__(self) -> bool:
+        return bool(self.rotations or self.locations)
 
 
 @dataclass
@@ -142,6 +168,25 @@ class ChainDefinition:
 
 
 @dataclass
+class Frame3:
+    """Right-handed orthonormal body frame: lateral (subject's left), up, forward."""
+
+    lateral: Vec3 = field(default_factory=lambda: Vec3(1.0, 0.0, 0.0))
+    up: Vec3 = field(default_factory=lambda: Vec3(0.0, 1.0, 0.0))
+    forward: Vec3 = field(default_factory=lambda: Vec3(0.0, 0.0, 1.0))
+
+
+@dataclass
+class RootReference:
+    """Image-space reference for root translation (aspect-corrected units)."""
+
+    hips_image: Vec3 = field(default_factory=Vec3)
+    metres_per_unit: float = 0.0  # metric size / image size at reference depth
+    distance: float = 2.0  # assumed camera distance at the reference (metres)
+    valid: bool = False
+
+
+@dataclass
 class CalibrationData:
     rest_style: RestPoseStyle = RestPoseStyle.T_POSE
     average_landmarks: Dict[str, Vec3] = field(default_factory=dict)
@@ -149,3 +194,10 @@ class CalibrationData:
     facing: Vec3 = field(default_factory=lambda: Vec3(0.0, -1.0, 0.0))
     bone_rest_dirs: Dict[str, Vec3] = field(default_factory=dict)
     valid: bool = False
+    # Rotation (backend coords) that makes the calibrated body upright and
+    # facing the camera: removes camera tilt/roll and the subject's yaw.
+    world_correction: Quat = field(default_factory=Quat)
+    # Per-role body frames measured after correction (torso/head roles).
+    role_frames: Dict[str, Frame3] = field(default_factory=dict)
+    torso_length: float = 0.0  # metres, hips_mid -> shoulders_mid
+    root_reference: RootReference = field(default_factory=RootReference)

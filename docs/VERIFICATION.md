@@ -13,10 +13,10 @@ Legend: **Implemented** = logic present and exercised offline or by API; **Envir
 | FR-003 | Register without crash if ML deps missing; show status | Implemented | Guarded imports; `BODYMOCAP_OT_refresh_deps`; panel deps box; `blender_compat.dependency_status` |
 | FR-004 | Declare Blender 4.0+; warn on unsupported | Implemented | `bl_info["blender"]=(4,0,0)`; `is_supported_blender`; camera ops report ERROR |
 | FR-010 | Start camera by device index | Implemented | `BODYMOCAP_OT_camera_start`; `camera/capture.CameraCapture.open` |
-| FR-011 | Live preview while session active | Implemented | `camera/preview.numpy_bgr_to_blender_image` Image `BodyMocap_Preview`; modal timer |
+| FR-011 | Live preview while session active | Implemented | Viewport picture-in-picture + status strip (`overlay/viewport.py`, POST_PIXEL); Image `BodyMocap_Preview` for Image Editors; background `camera/worker.py` |
 | FR-012 | Stop camera and release device | Implemented | `BODYMOCAP_OT_camera_stop`; `CameraCapture.close` |
 | FR-013 | Calibration T/A pose for configurable duration | Implemented | `BODYMOCAP_OT_calibrate`; `calibration_seconds`; `rest_pose_style` |
-| FR-014 | Capture reference skeleton for align/scale | Implemented | `mapping/apply_pose.average_calibrations` / `CalibrationData` |
+| FR-014 | Capture reference skeleton for align/scale | Implemented | `average_calibrations` → `CalibrationData.world_correction` (camera tilt + facing yaw), `role_frames`, `torso_length`, `root_reference` |
 | FR-015 | Mirror + subject scale/distance | Implemented | `mirror_preview`, `subject_scale`, `subject_distance` props; mirror in capture loop |
 | FR-016 | Fail fast if no camera; no UI hang | Implemented | Open + immediate `read` check; ERROR report; modal timer (not blocking) |
 | FR-020 | Detect single-person pose via backend | Implemented | `PoseBackend`; `MediaPipeBackend`; `MockBackend` |
@@ -24,21 +24,21 @@ Legend: **Implemented** = logic present and exercised offline or by API; **Envir
 | FR-022 | Minimum confidence threshold | Implemented | `ConfidenceConfig.min_confidence`; `TrackingHysteresis.filter_landmarks`; tests |
 | FR-023 | Hold/interpolate/drop + OK/Degraded/Lost UI | Implemented | `HoldInterpolatePolicy`; `TrackingState`; hysteresis tests; panel status |
 | FR-024 | Local processing by default | Implemented | No network in pose path; backends `local: true` |
-| FR-030 | Skeleton overlay on preview | Implemented | `overlay/draw.draw_skeleton_opencv` |
+| FR-030 | Skeleton overlay on preview / 3D Viewport | Implemented | `overlay/draw.draw_skeleton_opencv` on the camera frame; 3D ghost skeleton in world space (`overlay/viewport._draw_ghost`, POST_VIEW) |
 | FR-031 | Color by confidence | Implemented | `confidence_color` green/yellow/red |
 | FR-032 | Toggle overlay without stopping camera | Implemented | `show_overlay` prop |
 | FR-040 | Automatic humanoid mapping | Implemented | `mapping/templates.auto_map_bones`; `BODYMOCAP_OT_auto_map` |
 | FR-041 | Manual mapping UI list add/remove/clear | Implemented | `BODYMOCAP_UL_mapping`; mapping_ops add/remove/clear |
 | FR-042 | Save/load JSON presets | Implemented | `mapping/presets.py`; preset_save/load ops; `test_presets` |
 | FR-043 | Hierarchical mapping via roles | Implemented | `ROLE_LANDMARK_PAIRS`; `HUMANOID_ROLES`; FK directions |
-| FR-044 | Rest-pose calibration offsets | Implemented | `apply_landmarks_to_rotations` + `CalibrationData.bone_rest_dirs` |
+| FR-044 | Rest-pose calibration offsets | Implemented | `compute_pose_targets`: torso/head frame deltas relative to calibrated `role_frames`; `test_pose_solver.CalibrationTests` |
 | FR-045 | Mapping quality feedback | Implemented | `evaluate_mapping_quality`; panel message |
 | FR-046 | Mapping accuracy critical (proposed target) | Environment-limited | Pipeline implemented; quantitative fixture accuracy needs Blender visual review |
 | FR-050 | Start/pause/resume/stop recording | Implemented | `recording/session.RecordingSession`; record_ops |
-| FR-051 | Store per-frame bone transforms + frame index | Implemented | `RecordingFrame`; session.append |
+| FR-051 | Store per-frame bone transforms + frame index | Implemented | `RecordingFrame` (rotations + root locations); `session.append` indexes by elapsed time × scene FPS; `test_session.py` |
 | FR-052 | Discard take without baking | Implemented | `BODYMOCAP_OT_record_discard` |
 | FR-053 | Warn if degraded/lost > fraction (default 15%) | Implemented | `should_warn_tracking`; stop/bake reports WARNING |
-| FR-060 | Bake to Action with bone rotation keys | Implemented | `bake/action.bake_session_to_action` |
+| FR-060 | Bake to Action with bone rotation keys | Implemented | `bake/action.ActionKeyer` (rotation + hips location); offline bake and live keyframing while recording |
 | FR-061 | Action name, start frame, overwrite | Implemented | props + bake operator |
 | FR-062 | One-click Apply (action or NLA) | Implemented | `bake/apply.apply_action_to_armature`; `BODYMOCAP_OT_apply_action` |
 | FR-063 | Editable Actions without add-on running | Implemented | Standard `bpy.data.actions` / keyframes |

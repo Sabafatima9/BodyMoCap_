@@ -1,11 +1,18 @@
-"""Recording session storage (FR-050–053). Pure Python."""
+"""Recording session storage (FR-050–053). Pure Python.
+
+Frames are indexed by *elapsed wall-clock time × scene FPS* (FR-051), not by the
+number of capture ticks, so a take plays back at the speed it was performed even
+when pose inference runs slower or faster than the scene frame rate. Pauses are
+subtracted from the elapsed time.
+"""
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
-from ..core.types import Quat, RecordingFrame, TrackingState
+from ..core.types import Quat, RecordingFrame, TrackingState, Vec3
 
 
 @dataclass
@@ -16,22 +23,35 @@ class RecordingSession:
     fps: float = 24.0
     degraded_warn_fraction: float = 0.15
     name: str = "Take"
+    start_time: Optional[float] = None
+    paused_total: float = 0.0
+    _pause_started: Optional[float] = None
 
-    def start(self, fps: float = 24.0) -> None:
+    def start(self, fps: float = 24.0, timestamp: Optional[float] = None) -> None:
         self.frames.clear()
         self.is_recording = True
         self.is_paused = False
         self.fps = fps
+        self.start_time = timestamp if timestamp is not None else time.time()
+        self.paused_total = 0.0
+        self._pause_started = None
 
-    def pause(self) -> None:
-        if self.is_recording:
+    def pause(self, timestamp: Optional[float] = None) -> None:
+        if self.is_recording and not self.is_paused:
             self.is_paused = True
+            self._pause_started = timestamp if timestamp is not None else time.time()
 
-    def resume(self) -> None:
-        if self.is_recording:
+    def resume(self, timestamp: Optional[float] = None) -> None:
+        if self.is_recording and self.is_paused:
+            now = timestamp if timestamp is not None else time.time()
+            if self._pause_started is not None:
+                self.paused_total += max(0.0, now - self._pause_started)
+            self._pause_started = None
             self.is_paused = False
 
     def stop(self) -> None:
+        if self.is_paused:
+            self.resume()
         self.is_recording = False
         self.is_paused = False
 
@@ -39,28 +59,57 @@ class RecordingSession:
         self.frames.clear()
         self.is_recording = False
         self.is_paused = False
+        self.start_time = None
+
+    def frame_index_for(self, timestamp: float) -> int:
+        """Scene-frame offset (from take start) for a wall-clock timestamp."""
+        if self.start_time is None:
+            return len(self.frames)
+        elapsed = max(0.0, timestamp - self.start_time - self.paused_total)
+        return int(round(elapsed * max(self.fps, 1e-6)))
 
     def append(
         self,
-        frame_index: int,
-        bone_rotations: Dict[str, Quat],
+        frame_index: Optional[int] = None,
+        bone_rotations: Optional[Dict[str, Quat]] = None,
         tracking_state: TrackingState = TrackingState.OK,
         timestamp: Optional[float] = None,
-    ) -> None:
+        bone_locations: Optional[Dict[str, Vec3]] = None,
+    ) -> Optional[RecordingFrame]:
+        """Store one sample. Returns the stored frame or None when not recording.
+
+        ``frame_index`` may be given explicitly (offline tests); otherwise it is
+        derived from ``timestamp``. Several samples landing on the same scene
+        frame replace each other so the take never contains duplicate frames.
+        """
         if not self.is_recording or self.is_paused:
-            return
-        ts = timestamp if timestamp is not None else frame_index / max(self.fps, 1e-6)
-        self.frames.append(
-            RecordingFrame(
-                frame_index=frame_index,
-                bone_rotations=dict(bone_rotations),
-                tracking_state=tracking_state,
-                timestamp=ts,
-            )
+            return None
+        ts = timestamp if timestamp is not None else time.time()
+        if frame_index is None:
+            frame_index = self.frame_index_for(ts)
+        frame = RecordingFrame(
+            frame_index=frame_index,
+            bone_rotations=dict(bone_rotations or {}),
+            tracking_state=tracking_state,
+            timestamp=ts,
+            bone_locations=dict(bone_locations or {}),
         )
+        if self.frames and self.frames[-1].frame_index == frame_index:
+            self.frames[-1] = frame
+        else:
+            self.frames.append(frame)
+        return frame
 
     def frame_count(self) -> int:
         return len(self.frames)
+
+    def last_frame_index(self) -> int:
+        return self.frames[-1].frame_index if self.frames else -1
+
+    def duration_seconds(self) -> float:
+        if not self.frames:
+            return 0.0
+        return (self.frames[-1].frame_index - self.frames[0].frame_index + 1) / max(self.fps, 1e-6)
 
     def degraded_or_lost_fraction(self) -> float:
         if not self.frames:
@@ -94,6 +143,9 @@ class RecordingSession:
                     "tracking_state": f.tracking_state.name,
                     "bone_rotations": {
                         k: list(v.as_tuple()) for k, v in f.bone_rotations.items()
+                    },
+                    "bone_locations": {
+                        k: list(v.as_tuple()) for k, v in f.bone_locations.items()
                     },
                 }
                 for f in self.frames

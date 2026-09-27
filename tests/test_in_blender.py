@@ -69,6 +69,8 @@ def main():
             pf = be.infer(img, frame_index=i, timestamp=i / 30.0)
         n_landmarks = sum(1 for l in pf.landmarks.values() if l.valid)
         state = pf.tracking_state.name
+        n_world = sum(1 for l in pf.world_landmarks.values() if l.valid)
+        check("mp_world_landmarks", n_world >= 20, f"{n_world} metric 3D landmarks, aspect={pf.aspect:.2f}")
     check("mp_photo_landmarks", n_landmarks >= 20,
           f"{n_landmarks} valid landmarks, state={state}")
 
@@ -109,45 +111,56 @@ def main():
 
         from bodymocap.core.confidence import ConfidenceConfig, TrackingHysteresis
         from bodymocap.mapping.apply_pose import (
-            apply_landmarks_to_rotations,
-            apply_rotations_to_armature,
+            apply_solution_to_armature,
             average_calibrations,
+            build_root_reference,
+            solve_pose,
         )
         from bodymocap.pose.mock_backend import MockBackend
 
         mock = MockBackend(mode="walk", confidence_cfg=ConfidenceConfig())
         mock.initialize(mode="walk")
 
-        # Calibrate from synthetic frames
-        samples = [mock.infer(None, i, i / 30.0).landmarks for i in range(10)]
-        cal = average_calibrations(samples)
-        check("calibration", cal.valid, f"scale={cal.scale:.3f} rest_dirs={len(cal.bone_rest_dirs)}")
+        # Calibrate from synthetic frames (metric landmarks + image landmarks)
+        frames = [mock.infer(None, i, i / 30.0) for i in range(10)]
+        cal = average_calibrations(
+            [pf.world_landmarks for pf in frames], [pf.landmarks for pf in frames], frames[0].aspect
+        )
+        check("calibration", cal.valid and cal.root_reference.valid and "hips" in cal.role_frames,
+              f"torso={cal.torso_length:.3f}m frames={sorted(cal.role_frames)}")
 
-        # Apply a moving pose frame → pose bones should rotate
+        # Apply a moving pose frame → pose bones should rotate; hips should translate
         before = {pb.name: pb.rotation_quaternion.copy() for pb in arm.pose.bones}
         applied = 0
         for i in range(20, 40):
             pf = mock.infer(None, i, i / 30.0)
-            rots = apply_landmarks_to_rotations(pf.landmarks, mapped, cal)
-            applied = apply_rotations_to_armature(arm, rots)
+            sol = solve_pose(pf.world_landmarks, mapped, cal, arm, pf.landmarks, pf.aspect, root_motion=True)
+            applied = apply_solution_to_armature(arm, sol)
         moved = [
             n for n in before
             if (arm.pose.bones[n].rotation_quaternion - before[n]).magnitude > 1e-4
         ]
         check("live_apply_rotations", applied > 0 and len(moved) > 0,
-              f"{applied} bones set, {len(moved)} moved")
+              f"{applied} channels set, {len(moved)} moved")
+        check("root_motion_solved", mapped.get("hips") in sol.locations, f"locations={list(sol.locations)}")
 
-        # 5. Record + bake + apply ---------------------------------------------
-        bpy.ops.bodymocap.record_start()
-        from bodymocap.recording.session import get_active_session
-        session = get_active_session()
+        # 5. Record + bake + apply (session API, offline) ------------------------
+        settings.live_keyframes = False
+        settings.auto_apply_on_stop = False
+        settings.capture_armature = arm
+        from bodymocap.recording.session import reset_active_session
+        session = reset_active_session()
+        session.start(fps=30.0, timestamp=0.0)
+        settings.is_recording = True
         for i in range(40, 70):
             pf = mock.infer(None, i, i / 30.0)
-            rots = apply_landmarks_to_rotations(pf.landmarks, mapped, cal)
-            session.append(i - 40, rots, pf.tracking_state, i / 30.0)
-        bpy.ops.bodymocap.record_stop()
+            sol = solve_pose(pf.world_landmarks, mapped, cal, arm, pf.landmarks, pf.aspect, root_motion=True)
+            session.append(bone_rotations=sol.rotations, tracking_state=pf.tracking_state,
+                           timestamp=(i - 40) / 30.0, bone_locations=sol.locations)
+        session.stop()
+        settings.is_recording = False
         n_rec = session.frame_count()
-        check("record_frames", n_rec == 30, f"{n_rec} frames")
+        check("record_frames", n_rec == 30, f"{n_rec} frames (time-indexed at 30 fps)")
 
         bpy.ops.bodymocap.bake_action()
         action = bpy.data.actions.get(settings.action_name)
@@ -205,11 +218,14 @@ def main():
         bpy.context.view_layer.objects.active = tgt_obj
         tgt_obj.select_set(True)
 
-        settings.source_armature = arm.name
-        settings.target_armature = tgt_obj.name
-        settings.retarget_action = settings.action_name
+        settings.source_armature = arm
+        settings.target_armature = tgt_obj
+        settings.retarget_action = bpy.data.actions.get(settings.action_name)
         settings.retarget_new_action = "RetargetedTest"
-        bpy.ops.bodymocap.retarget_transfer()
+        bpy.ops.bodymocap.retarget()
+        check("retarget_status", "Retargeted" in settings.retarget_status, settings.retarget_status[:80])
+        check("retarget_applied", tgt_obj.animation_data and tgt_obj.animation_data.action
+              and tgt_obj.animation_data.action.name == "RetargetedTest")
         new_act = bpy.data.actions.get("RetargetedTest")
         tgt_keys = 0
         if new_act:
@@ -241,4 +257,5 @@ except Exception:
     traceback.print_exc()
     FAILURES.append("unhandled_exception")
 
-sys.exit(0 if not FAILURES else 1)
+if bpy.app.background:
+    sys.exit(0 if not FAILURES else 1)

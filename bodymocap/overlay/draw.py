@@ -36,21 +36,9 @@ def draw_skeleton_opencv(
     h, w = out.shape[:2]
 
     def to_px(lm: Landmark) -> Tuple[int, int]:
-        # Landmarks may be normalized 0..1 or world-ish; detect
+        # Image-space landmarks: x centred on 0 (-0.5..0.5), y up (0..1).
         x, y = lm.position.x, lm.position.y
-        if abs(x) <= 1.5 and abs(y) <= 1.5:
-            # Treat as normalized image coords centered or 0..1
-            if x < 0 or y < 0 or x > 1.0 or y > 1.0:
-                # centered / y-up world → project roughly
-                px = int((x + 0.5) * w)
-                py = int((1.0 - y) * h) if y <= 2.0 else int(y * h)
-            else:
-                px = int(x * w)
-                py = int(y * h)
-        else:
-            px = int(x)
-            py = int(y)
-        return px, py
+        return int((x + 0.5) * w), int((1.0 - y) * h)
 
     pts: Dict[str, Tuple[int, int]] = {}
     for name, lm in landmarks.items():

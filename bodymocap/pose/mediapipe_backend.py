@@ -20,7 +20,7 @@ from __future__ import annotations
 import os
 import urllib.request
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 from ..core.confidence import ConfidenceConfig, TrackingHysteresis
 from ..core.landmarks import MEDIAPIPE_POSE_NAMES
@@ -265,40 +265,79 @@ class MediaPipeBackend(PoseBackend):
             import cv2
 
             rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+            h, w = rgb.shape[:2]
             if self._api == "tasks":
-                landmarks = self._infer_tasks(rgb)
+                landmarks, world = self._infer_tasks(rgb)
             else:
-                landmarks = self._infer_legacy(rgb)
+                landmarks, world = self._infer_legacy(rgb)
         except Exception as exc:
             self.last_error = f"Inference error: {exc}"
             return PoseFrame(frame_index=frame_index, timestamp=timestamp)
 
         filtered = self._hyst.filter_landmarks(landmarks)
         state = self._hyst.update(landmarks)
+        # World landmarks share validity with their image-space twins.
+        world_filtered = {
+            name: Landmark(name, lm.position, lm.confidence, filtered[name].valid if name in filtered else lm.valid)
+            for name, lm in world.items()
+        }
         return PoseFrame(
             landmarks=filtered,
             tracking_state=state,
             timestamp=timestamp,
             frame_index=frame_index,
+            world_landmarks=world_filtered,
+            aspect=(w / h) if h else 1.0,
         )
 
-    def _infer_legacy(self, rgb: Any) -> Dict[str, Landmark]:
+    @staticmethod
+    def _confidence(lm: Any) -> float:
+        vis = getattr(lm, "visibility", None)
+        if vis is None:
+            vis = getattr(lm, "presence", None)
+        return float(vis) if vis is not None else 1.0
+
+    @classmethod
+    def _convert(cls, points: Any) -> Tuple[Dict[str, Landmark], Dict[str, Landmark]]:
+        """Image-normalized landmarks → (image-space dict, empty world dict)."""
+        landmarks: Dict[str, Landmark] = {}
+        for idx, lm in enumerate(points):
+            name = MEDIAPIPE_POSE_NAMES.get(idx, f"lm_{idx}")
+            # MediaPipe: x,y normalized image (y down); z depth-ish (negative = closer).
+            # Convert to x right, y up, z toward camera.
+            landmarks[name] = Landmark(
+                name=name,
+                position=Vec3(float(lm.x - 0.5), float(1.0 - lm.y), float(-lm.z)),
+                confidence=cls._confidence(lm),
+                valid=True,
+            )
+        return landmarks, {}
+
+    @classmethod
+    def _convert_world(cls, points: Any) -> Dict[str, Landmark]:
+        """Metric world landmarks (metres, hip-centred): x right, y down, z away → y up, z toward camera."""
+        world: Dict[str, Landmark] = {}
+        for idx, lm in enumerate(points):
+            name = MEDIAPIPE_POSE_NAMES.get(idx, f"lm_{idx}")
+            world[name] = Landmark(
+                name=name,
+                position=Vec3(float(lm.x), float(-lm.y), float(-lm.z)),
+                confidence=cls._confidence(lm),
+                valid=True,
+            )
+        return world
+
+    def _infer_legacy(self, rgb: Any) -> Tuple[Dict[str, Landmark], Dict[str, Landmark]]:
         rgb.flags.writeable = False
         results = self._pose.process(rgb)
-        landmarks: Dict[str, Landmark] = {}
-        if results.pose_landmarks:
-            for idx, lm in enumerate(results.pose_landmarks.landmark):
-                name = MEDIAPIPE_POSE_NAMES.get(idx, f"lm_{idx}")
-                # MediaPipe: x,y normalized image; z depth-ish. Map to y-up world-ish.
-                landmarks[name] = Landmark(
-                    name=name,
-                    position=Vec3(float(lm.x - 0.5), float(1.0 - lm.y), float(-lm.z)),
-                    confidence=float(getattr(lm, "visibility", 1.0)),
-                    valid=True,
-                )
-        return landmarks
+        if not results.pose_landmarks:
+            return {}, {}
+        landmarks, _ = self._convert(results.pose_landmarks.landmark)
+        world_lms = getattr(results, "pose_world_landmarks", None)
+        world = self._convert_world(world_lms.landmark) if world_lms else {}
+        return landmarks, world
 
-    def _infer_tasks(self, rgb: Any) -> Dict[str, Landmark]:
+    def _infer_tasks(self, rgb: Any) -> Tuple[Dict[str, Landmark], Dict[str, Landmark]]:
         mp = self._mp
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
         # detect_for_video requires strictly increasing timestamps (ms)
@@ -310,23 +349,13 @@ class MediaPipeBackend(PoseBackend):
         self._last_ts_ms = ts_ms
 
         result = self._pose.detect_for_video(mp_image, ts_ms)
-        landmarks: Dict[str, Landmark] = {}
         poses = getattr(result, "pose_landmarks", None) or []
-        if poses:
-            for idx, lm in enumerate(poses[0]):
-                name = MEDIAPIPE_POSE_NAMES.get(idx, f"lm_{idx}")
-                landmarks[name] = Landmark(
-                    name=name,
-                    position=Vec3(
-                        float(lm.x - 0.5), float(1.0 - lm.y), float(-lm.z)
-                    ),
-                    confidence=float(
-                        getattr(lm, "visibility", None)
-                        or getattr(lm, "presence", 1.0)
-                    ),
-                    valid=True,
-                )
-        return landmarks
+        if not poses:
+            return {}, {}
+        landmarks, _ = self._convert(poses[0])
+        world_poses = getattr(result, "pose_world_landmarks", None) or []
+        world = self._convert_world(world_poses[0]) if world_poses else {}
+        return landmarks, world
 
     def shutdown(self) -> None:
         if self._pose is not None:
